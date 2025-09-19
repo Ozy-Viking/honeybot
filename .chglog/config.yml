@@ -1,0 +1,46 @@
+style: github
+template: CHANGELOG.tpl.md
+info:
+  title: CHANGELOG
+  repository_url: https://github.com/Ozy-Viking/cargo_update_version
+options:
+  sort: "semver"
+  commits:
+    filters:
+      Type:
+        - feat
+        - fix
+        - bug
+        - perf
+        - refactor
+        - test
+        - doc
+        - note
+        - build
+        - chore
+  commit_groups:
+    title_maps:
+      feat: Features
+      fix: Bug Fixes
+      bug: Known Bugs
+      perf: Performance Improvements
+      refactor: Code Refactoring
+      test: Testing Changes
+      doc: Documentation Improvements
+      build: Build Changes
+      note: Notes
+      chore: Chores
+  header:
+    pattern: "^(?:(\\w*)(?:\\(([\\w\\$\\.\\-\\*\\s]*)\\))?\\:\\s)?(.*)$"
+    pattern_maps:
+      - Type
+      - Scope
+      - Subject
+  merges:
+    pattern: "^(?:.*\\(#(\\w+)\\))$"
+    pattern_maps:
+      - Source
+  notes:
+    keywords:
+      - BREAKING CHANGE
+      - Note
