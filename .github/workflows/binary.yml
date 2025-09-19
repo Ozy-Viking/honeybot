@@ -16,7 +16,7 @@ jobs:
   update-changelog:
     runs-on: ubuntu-latest
     outputs:
-        changelog: ${{steps.version_change_log.outputs}}
+        changelog: ${{steps.version_change_log.outputs.changelog}}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -45,7 +45,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Version Change Log
         id: version_change_log
-        run: "./git-chglog -t ./.chglog/VERSION.tpl.md ${{ github.ref_name }} >> $GITHUB_OUTPUT"
+        run: echo "changelog=$(./git-chglog -t ./.chglog/VERSION.tpl.md ${{ github.ref_name }})" >> $GITHUB_OUTPUT
       - name: Cleanup
         run: rm git-chglog
         if: always()
