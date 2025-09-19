@@ -1,0 +1,131 @@
+name: Build Biniary and Release
+
+on:
+  push:
+    tags:
+      - "[vV]?[0-9]+.[0-9]+.[0-9]+*"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  update-changelog:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Setup git-chglog
+        run: |
+          CHGLOG_VERSION="0.15.4"
+          curl -L "https://github.com/git-chglog/git-chglog/releases/download/v${CHGLOG_VERSION}/git-chglog_${CHGLOG_VERSION}_linux_amd64.tar.gz" -o git-chglog_${CHGLOG_VERSION}.tar.gz
+          tar -zxf git-chglog_${CHGLOG_VERSION}.tar.gz
+          chmod +x git-chglog
+
+      - name: Generate CHANGELOG.md
+        id: generate
+        run: |
+          rm -f CHANGELOG.md
+          ./git-chglog -o CHANGELOG.md
+          if git diff --quiet CHANGELOG.md; then
+            echo "changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "changes=true" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cleanup
+        run: rm git-chglog
+        if: always()
+
+      - name: Create Pull Request
+        id: create-pr
+        if: steps.generate.outputs.changes == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Update CHANGELOG.md"
+          title: "📝 Update Changelog"
+          body: |
+            This PR updates the CHANGELOG.md to include all releases.
+            - Generated using git-chglog
+            - Triggered by: ${{ github.event_name }}
+            - Auto-merge enabled
+          branch: update-changelog-${{ github.run_id }}
+          base: main
+          add-paths: "./CHANGELOG.md"
+          delete-branch: true
+          labels: documentation, automated-pr
+          sign-commits: true
+
+      - name: Auto-merge Pull Request
+        if: steps.generate.outputs.changes == 'true'
+        run: |
+          gh pr merge --auto --merge "${{ steps.create-pr.outputs.pull-request-number }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  create-release:
+    needs: update-changelog
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/create-gh-release-action@v1
+        with:
+          # (optional) Path to changelog.
+          changelog: CHANGELOG.md
+          allow-missing-changelog: true
+          # branch: main
+          # (required) GitHub token for creating GitHub Releases.
+          token: ${{ secrets.GITHUB_TOKEN }}
+          draft: true
+  check-and-upload:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: x86_64-apple-darwin
+            os: macos-latest
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: "${{ matrix.target }}"
+      - name: Check
+        run: cargo build --release --verbose --target ${{ matrix.target }}
+      - name: Run tests
+        run: cargo test --release --verbose --target ${{ matrix.target }}
+      - uses: taiki-e/upload-rust-binary-action@v1
+        with:
+          # (required) Comma-separated list of binary names (non-extension portion of filename) to build and upload.
+          # Note that glob pattern is not supported yet.
+          bin: cargo-uv
+          # (optional) Target triple, default is host triple.
+          # This is optional but it is recommended that this always be set to
+          # clarify which target you are building for if macOS is included in
+          # the matrix because GitHub Actions changed the default architecture
+          # of macos-latest since macos-14.
+          target: ${{ matrix.target }}
+          archive: $bin-$tag-$target
+          # (optional) On which platform to distribute the `.tar.gz` file.
+          # [default value: unix]
+          # [possible values: all, unix, windows, none]
+          tar: unix
+          # (optional) On which platform to distribute the `.zip` file.
+          # [default value: windows]
+          # [possible values: all, unix, windows, none]
+          zip: windows
+          # (required) GitHub token for uploading assets to GitHub Releases.
+          token: ${{ secrets.GITHUB_TOKEN }}
