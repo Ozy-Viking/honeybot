@@ -96,6 +96,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
   check-and-upload:
+    needs: create-release
     strategy:
       fail-fast: false
       matrix:
