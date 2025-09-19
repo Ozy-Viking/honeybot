@@ -15,6 +15,8 @@ env:
 jobs:
   update-changelog:
     runs-on: ubuntu-latest
+    outputs:
+        changelog: ${{steps.version_change_log.outputs}}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -41,7 +43,9 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+      - name: Version Change Log
+        id: version_change_log
+        run: "git-chglog.exe --next-tag ${{ github.ref_name }} -t ./.chglog/VERSION.tpl.md >> $GITHUB_OUTPUT"
       - name: Cleanup
         run: rm git-chglog
         if: always()
@@ -77,10 +81,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - env:
+          CHANGELOG: ${{needs.update-changelog.outputs.changelog}}
+        run: "echo $CHANGELOG > temp_changelog.md"
       - uses: taiki-e/create-gh-release-action@v1
         with:
           # (optional) Path to changelog.
-          changelog: CHANGELOG.md
+          changelog: temp_changelog.md
           allow-missing-changelog: true
           # branch: main
           # (required) GitHub token for creating GitHub Releases.
