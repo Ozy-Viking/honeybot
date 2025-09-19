@@ -45,7 +45,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Version Change Log
         id: version_change_log
-        run: "git-chglog.exe --next-tag ${{ github.ref_name }} -t ./.chglog/VERSION.tpl.md >> $GITHUB_OUTPUT"
+        run: "./git-chglog --next-tag ${{ github.ref_name }} -t ./.chglog/VERSION.tpl.md >> $GITHUB_OUTPUT"
       - name: Cleanup
         run: rm git-chglog
         if: always()
